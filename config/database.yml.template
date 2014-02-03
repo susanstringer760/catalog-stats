@@ -1,0 +1,9 @@
+adapter: mysql2
+encoding: utf8
+database: [db name] 
+username: [db user name]
+password: [db password]
+pool: 5
+timeout: 5000
+# socket: /tmp/mysql.sock
+#host: localhost
