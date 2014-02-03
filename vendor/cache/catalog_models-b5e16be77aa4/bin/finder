@@ -1,0 +1,87 @@
+#!/usr/bin/env ruby
+
+# demo / proof-of-concept script for using catalog_models gem
+# run script w/ no arguments for help USAGE
+
+require 'pp'
+
+# USAGE
+if ARGV.size < 1
+  $stderr.puts
+  $stderr.puts "USAGE:\n\t#{$0} model_class model_identifier"
+  $stderr.puts "e.g.:"
+  $stderr.puts "\t#{$0} project predict"
+  $stderr.puts "\t#{$0} project 222"
+  $stderr.puts
+  $stderr.puts "\t#{$0} catalog [<project> [<category> [<platform> [<product>]]]]"
+  $stderr.puts "\t#{$0} catalog predict 'Catalog report'"
+  $stderr.puts "\t#{$0} catalog predict 'Catalog report' 'Catalog science_director' 'summary'"
+  $stderr.puts
+  exit 1
+end
+
+# BUSINESS
+
+  begin
+    require 'rubygems' # for ruby 1.8.7
+    require 'bundler/setup' # for bundler-managed gemsets
+    require 'catalog_models'
+    CatalogModels.initialize!()
+  rescue Exception => raised
+    $stderr.puts
+    $stderr.puts :oops!
+    $stderr.puts raised
+    $stderr.puts
+    exit 2
+  end
+
+  model_id, conditions = nil, {}
+  catalog_model_names = [:xxx,:Project,:Category,:Platform,:Product]
+  #catalog_models = [nil,Project.class,Category.class,Platform.class,Product.class]
+
+  if ARGV[0] == 'catalog'
+    stuff = []
+    ARGV.each_with_index { |arg,i| stuff.push(eval("#{catalog_model_names[i].to_s}.find(:first, :conditions=>{:name=>'#{arg}'})")) if (i>0) }
+    #ARGV.each_with_index { |arg,i| stuff.push(catalog_models[i].find(:first, :conditions=>{:name=>arg})) if (i>0) }
+    models = Dataset.related(*stuff)
+  elsif ARGV.size >= 1
+    model_name = ARGV[0].capitalize
+
+    # convert model_name to Class
+    begin
+      model_class = Kernel.const_get(model_name)
+    rescue
+      raise "there was an error trying to find model class w/ name: %s" % model_name
+    end
+  else
+    $stderr.puts "No model given."
+    exit 1
+  end
+
+  # parse input args
+  if ARGV.size >= 2 && ARGV[0] != 'catalog'
+    model_id = ARGV[1]
+    # test if model_id is numeric id or name
+    if model_id =~ /^\d+$/
+      conditions = { :id => model_id.to_i }
+    elsif model_name == 'Dataset'
+      conditions = { :archive_ident => model_id }
+    else
+      conditions = { :name => model_id }
+    end
+
+    # finder, e.g. Project.find()
+    models = model_class.find( :all, :conditions=>conditions )
+  end
+
+  # output model fields
+  fields = [ :id, :name, :title, :summary, :begin_date, :end_date ]
+  models.each do |model|
+    puts
+    fields.each do |field|
+      if model.respond_to? field and ! model.send(field).nil?
+        puts field.to_s + ":\t" + model.send(field).to_s
+      end
+    end
+
+  end
